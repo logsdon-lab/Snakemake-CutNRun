@@ -1,0 +1,7 @@
+result*/
+log*/
+benchmark*/
+.snakemake/
+SG*/
+data*
+testing/

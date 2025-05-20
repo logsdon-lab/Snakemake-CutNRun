@@ -1,0 +1,15 @@
+ref: /project/logsdon_shared/projects/CHM13_CUTNRUN/data/T2T-CHM13v2.fasta
+
+samples:
+  CENP-A_2.5:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode11.bam
+  CENP-A_0.25:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode12.bam
+  CENP-A_0.05:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode13.bam
+  IgG_2.5:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode14.bam
+  IgG_0.25:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode15.bam
+  IgG_0.05:
+    path: /project/logsdon_shared/long_read_archive/unsorted/20250408_CHM13_cutrun_SC_NBD114/NB11-16/20250408_1634_2C_PAU15721_37c29a8d/pod5/demux/SQK-NBD114-24_barcode16.bam
