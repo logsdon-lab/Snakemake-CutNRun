@@ -82,6 +82,12 @@ parser.add_argument(
     help="Plot the read length distribution and save to the provided argument",
 )
 parser.add_argument(
+    "--max_read_len",
+    type=int,
+    default=5_000,
+    help="Max read length to plot."
+)
+parser.add_argument(
     "--plot_ext",
     choices=["png", "pdf"],
     default="pdf",
@@ -168,7 +174,7 @@ for sm in df["sm"].unique():
     sns.set_style("ticks")
     fig, ax = plt.subplots(figsize=(20, 12))
 
-    values = df_sm[1][(df_sm[1] > 10) & (df_sm[1] < 1_000)]
+    values = df_sm[1][df_sm[1] < args.max_read_len]
     bin_size = 10
     bins = values.max() // bin_size
 
