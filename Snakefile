@@ -2,10 +2,11 @@ from os.path import join, dirname
 
 
 SAMPLES = config["samples"]
+SAMPLES_NON_BASELINE = [sm for sm in SAMPLES if sm != config["sample_baseline"]]
 LOG_DIR = config.get("log_dir", "logs")
 BMK_DIR = config.get("benchmark_dir", "benchmarks")
 OUTPUT_DIR = config.get("output_dir", "results")
-MIN_LEN, MAX_LEN = 100, 10_000
+MIN_LEN, MAX_LEN = config.get("min_length", 100), config.get("max_length", 10_000)
 
 scattergather:
     split=4
@@ -17,7 +18,7 @@ rule convert_to_fq:
         fastq=join(OUTPUT_DIR, "{sm}", "reads.fq"),
         fastq_fai=join(OUTPUT_DIR, "{sm}", "reads.fq.fai"),
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "{sm}_bam_to_fq.log")
     shell:
@@ -35,7 +36,7 @@ rule partition_reads:
             join(OUTPUT_DIR, "{{sm}}", "reads_{scatteritem}.fq")
         )
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "{sm}_bam_to_fq.log")
     shell:
@@ -44,29 +45,32 @@ rule partition_reads:
         """
     
 # Trim adapters
+# We don't need FastQC and frequently run into issues of trimgalore freezing
+# See https://github.com/FelixKrueger/TrimGalore/issues/205
 rule trim_adapter:
     input:
         fq=join(OUTPUT_DIR, "{sm}", "reads_{scatteritem}.fq")
     output:
         reads=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_{scatteritem}_trimmed.fq"),
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "{sm}_trim_adapters_{scatteritem}.log")
     threads:
         12
     params:
-        min_len=MIN_LEN,
+        error_rate=0.1,
+        quality=20,
         stringency=5,
-        outdir=lambda wc, output: dirname(output.reads),
+        motif="AGATCGGAAGAGC"
     shell:
         """
         cutadapt \
         -j {threads} \
-        -e 0.1 \
-        -q 20 \
-        -O 5 \
-        -a AGATCGGAAGAGC \
+        -e {params.error_rate} \
+        -q {params.quality} \
+        -O {params.stringency} \
+        -a {params.motif} \
         {input.fq} > {output} 2> {log}
         """
 
@@ -87,7 +91,7 @@ rule filter_reads:
         reads=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_trimmed_filtered.fq"),
         reads_fai=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_trimmed_filtered.fq.fai"),
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "{sm}_filter_reads.log")
     params:
@@ -99,49 +103,17 @@ rule filter_reads:
         samtools faidx {output.reads}
         """
 
-rule get_number_of_reads:
-    input:
-        reads_fai=expand(rules.filter_reads.output.reads_fai, sm=SAMPLES),
-    output:
-        join(OUTPUT_DIR, "read_number.txt"),
-    conda:
-        "general"
-    shell:
-        """
-        wc -l {input.reads_fai} | head -n-1 | awk '{{ print $1, $2 }}' | sort > {output}
-        """
-
-# Downsample to same number of reads across sample.
-rule downsample_to_lowest_read_number:
-    input:
-        reads=rules.filter_reads.output.reads,
-        read_nums=rules.get_number_of_reads.output
-    output:
-        downsampled_reads=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_trimmed_filtered_downsampled.fq"),
-        downsampled_reads_fai=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_trimmed_filtered_downsampled.fq.fai"),
-    params:
-        seed=100
-    conda:
-        "general"
-    log:
-        join(LOG_DIR, "downsample_{sm}_reads_to_lowest_num.log")
-    shell:
-        """
-        min_n_reads=$(head -n1 {input.read_nums} | cut -f 1)
-        seqtk sample -s{params.seed} {input.reads} ${{min_n_reads}} > {output.downsampled_reads}
-        samtools faidx {output.downsampled_reads}
-        """
-
 rule plot_reads:
     input:
         script="ont_stats",
-        fai=rules.downsample_to_lowest_read_number.output.downsampled_reads_fai,
+        fai=rules.filter_reads.output.reads_fai,
+        # fai=rules.downsample_to_lowest_read_number.output.downsampled_reads_fai,
     output:
         join(OUTPUT_DIR, "{sm}", "cdf", "{sm}_read_length.pdf")
     params:
         outdir=lambda wc, output: os.path.dirname(str(output[0]))
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "plot_reads_{sm}.log")
     shell:
@@ -162,7 +134,7 @@ rule index_asm:
             ".sa",
         )
     conda:
-        "general"
+        "env.yaml"
     log:
         join(LOG_DIR, "index_ref.log")
     shell:
@@ -172,14 +144,14 @@ rule index_asm:
 
 rule align_reads_bwa:
     input:
-        reads=rules.downsample_to_lowest_read_number.output.downsampled_reads,
+        reads=rules.filter_reads.output.reads,
         reference=config["ref"],
         index=rules.index_asm.output,
     output:
         bam=join(OUTPUT_DIR, "{sm}", "reads_to_ref.bam"),
         bai=join(OUTPUT_DIR, "{sm}", "reads_to_ref.bam.bai"),
     conda:
-        "general"
+        "env.yaml"
     params:
         k=50,
         c=1000000,
@@ -194,9 +166,38 @@ rule align_reads_bwa:
         samtools index {output.bam}
         """
 
+rule convert_bam_to_bw:
+    input:
+        bam_1=rules.align_reads_bwa.output.bam,
+        bam_2=expand(rules.align_reads_bwa.output.bam, sm=config["sample_baseline"])
+    output:
+        bw=join(OUTPUT_DIR, "{sm}", "reads_to_ref.bw"),
+    params:
+        # Noisy reads so MAPQ 1 filters everything.
+        mapq=config.get("min_mapq", 0),
+        binSize=config.get("binsize", 5000),
+    conda:
+        "env.yaml"
+    threads:
+        20
+    log:
+        join(LOG_DIR, "{sm}_convert_bam_to_bw.log")
+    shell:
+        """
+        bamCompare \
+        -b1 {input.bam_1} \
+        -b2 {input.bam_2} \
+        --operation ratio \
+        --binSize {params.binSize} \
+        --minMappingQuality {params.mapq} \
+        -p {threads} \
+        -o {output} 2> {log} 
+        """
+
 rule all:
     input:
         expand(rules.align_reads_bwa.output, sm=SAMPLES),
+        expand(rules.convert_bam_to_bw.output, sm=SAMPLES_NON_BASELINE),
         expand(rules.plot_reads.output, sm=SAMPLES)
     default_target:
         True
