@@ -3,7 +3,7 @@ Does the following:
 1. Trims adapters
 2. Filters reads between 100 - 10kbp
 3. Aligns with bwa-mem
-4. Normalizes to sample_baseline and gnera
+4. Normalizes to sample_baseline and generate bigWig for visualization.
 
 Create conda environment.
 ```bash
