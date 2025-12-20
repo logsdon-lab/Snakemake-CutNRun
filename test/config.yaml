@@ -1,0 +1,7 @@
+ref: test/NA20355_chr8_haplotype1-0000017.fa.gz
+sample_baseline: IgG
+samples:
+  CENP-A:
+    path: test/NA20355_chr8_haplotype1-0000017_CENPA.bam
+  IgG:
+    path: test/NA20355_chr8_haplotype1-0000017_IgG.bam
