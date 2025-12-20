@@ -1,4 +1,5 @@
 # CUT&RUN ONT workflow
+[![CI](https://github.com/logsdon-lab/Snakemake-CutNRun/actions/workflows/main.yaml/badge.svg)](https://github.com/logsdon-lab/Snakemake-CutNRun/actions/workflows/main.yaml)
 
 Workflow to do the following:
 1. Trims adapters
@@ -7,6 +8,8 @@ Workflow to do the following:
 4. Normalizes to sample_baseline and generate bigWig for visualization.
 
 ![](docs/IGV_NA20355_chr8_haplotype1-0000017_closeup.png)
+
+> Normalized CENP-A enrichment in HGSVC NA20355_chr8_haplotype1-0000017   
 
 ## Getting Started
 Clone the repo.
@@ -35,18 +38,20 @@ samples:
     path: data/IgG/reads.bam
 ```
 
-## Output
-Normalized `bigWig` file under `results/(!sample_baseline)/reads_to_ref.bam`.
-* ex. `results/CENP-A/reads_to_ref.bam`
-
 ## Run
+To run the workflow and install necessary dependencies with conda.
 ```bash
 snakemake -np --configfile config.yaml -c 12 --sdm conda
 ```
 
+## Output
+Normalized `bigWig` file under `results/(!sample_baseline)/reads_to_ref.bam`.
+* ex. `results/CENP-A/reads_to_ref.bam`
+* This can be loaded in `IGV` with the aligned reference.
+
 ## Test
+Run test case of CENP-A enrichment in HGSVC NA20355_chr8_haplotype1-0000017.
 ```bash
-# NA20355_chr8_haplotype1-0000017 centromere
 # Note: Reads subset for testing purposes.
 # See docs/IGV_NA20355_chr8_haplotype1-0000017_no_subset.png
 snakemake -p --configfile test/config.yaml -c 12 --sdm conda
