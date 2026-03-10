@@ -20,7 +20,7 @@ cd Snakemake-CutNRun
 
 Create conda environment with Snakemake.
 ```bash
-conda env create --name smk snakemake==9.5.0
+conda create --name smk snakemake==9.5.0
 ```
 
 ## Configuation
