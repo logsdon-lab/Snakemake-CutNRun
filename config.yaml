@@ -1,7 +1,17 @@
-ref: data/asm/asm.fa
-sample_baseline: IgG
+primer_list: data/14-1001-cut-and-run-library-prep-kit-primers.csv
 samples:
-  CENP-A:
-    path: data/CENP-A/reads.bam
-  IgG:
-    path: data/IgG/reads.bam
+  sample_1:
+    ref: data/asm/asm.fa
+    data:
+      treatment:
+        primer:
+        - ["", ""]
+        path: data/CENP-A/reads.bam
+      control:
+        primer:
+        - ["", ""]
+        path: data/IgG/reads.bam
+    min_length: 100
+    max_length: 100000
+    min_mapq: 0
+    binsize: 5000

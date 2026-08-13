@@ -18,24 +18,48 @@ git clone https://github.com/logsdon-lab/Snakemake-CutNRun.git
 cd Snakemake-CutNRun
 ```
 
-Create conda environment with Snakemake.
+Create conda/pixi environment with Snakemake.
 ```bash
 conda create --name smk snakemake==9.5.0
+# Or with pixi
+pixi install
 ```
 
 ## Configuation
 Modify to fit your use-case.
-* Expects a baseline to compare treatment enrichment against.
-* Only one sample possible.
 
 ```yaml
-ref: data/asm/asm.fa
-sample_baseline: IgG
+# Mapping of idx to primer sequence
+primer_list: data/14-1001-cut-and-run-library-prep-kit-primers.csv
 samples:
-  CENP-A:
-    path: data/CENP-A/reads.bam
-  IgG:
-    path: data/IgG/reads.bam
+  # sample name
+  sample_1:
+    # Reference genome to align to.
+    ref: data/asm/asm.fa
+    data:
+      treatment:
+        # Primer list (list[list[str]] or list[str])
+        # NOTE: If multiple paths, primer pairs are compared against merged reads.
+        primer:
+        - ["idx_15*", "idx_i7*"]
+        # Path to unaligned BAM data
+        path: data/CENP-A/reads.bam
+      control:
+        primer:
+        - ["idx_15*", "idx_i7*"]
+        - ["idx_15*", "idx_i7*"]
+        path: [
+          data/IgG/reads1.bam,
+          data/IgG/reads2.bam,
+        ]
+    # Min read length
+    # Max read length
+    min_length: 100
+    max_length: 10000
+    # Minimum MAPQ
+    min_mapq: 0
+    # Bin size
+    binsize: 5000
 ```
 
 ## Run
@@ -43,6 +67,12 @@ To run the workflow and install necessary dependencies with conda.
 ```bash
 snakemake -np --configfile config.yaml -c 12 --sdm conda
 ```
+
+With `pixi`:
+```bash
+pixi run snakemake --configfile test/config.yaml -c 8 -p --sdm conda
+```
+
 
 ## Output
 Normalized `bigWig` file under `results/(!sample_baseline)/reads_to_ref.bam`.
