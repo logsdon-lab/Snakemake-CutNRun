@@ -8,7 +8,9 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
-snakemake = { version = "9.5.0", channel = "bioconda" }
+snakemake = { version = "==9.5.0", channel = "bioconda" }
 cutadapt = ">=5.2,<6"
 samtools = ">=1.24,<2"
 conda = ">=26.7.0,<27"
+polars = ">=1.43.2,<2"
+matplotlib = ">=3.11.1,<4"
