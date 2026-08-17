@@ -1,0 +1,177 @@
+include: "rules/common.smk"
+
+
+SAMPLE_INFO = config["samples"]
+SAMPLES = SAMPLE_INFO.keys()
+LOG_DIR = config.get("log_dir", "logs")
+BMK_DIR = config.get("benchmark_dir", "benchmarks")
+OUTPUT_DIR = config.get("output_dir", "results")
+PRIMERS: dict[str, str] = load_primer_list()
+
+
+wildcard_constraints:
+    sm="|".join(SAMPLES),
+    condition="|".join(CONDITIONS),
+
+
+rule convert_to_fq:
+    input:
+        ubam=lambda wc: SAMPLE_INFO[wc.sm]["data"][wc.condition]["path"]
+    output:
+        fastq=temp(join(OUTPUT_DIR, "{sm}", "raw", "reads_{condition}.fq")),
+        fastq_fai=temp(join(OUTPUT_DIR, "{sm}", "raw", "reads_{condition}.fq.fai")),
+    params:
+        merge_cmd=lambda wc, input, output: (
+            f"samtools merge -o - {input.ubam} | samtools bam2fq -T '*' - > {output.fastq}"
+            if isinstance(input.ubam, list) else
+            f"samtools bam2fq -T '*' {input.ubam} > {output.fastq}"
+        )
+    conda:
+        "envs/env.yaml"
+    log:
+        join(LOG_DIR, "{sm}_{condition}_bam_to_fq.log")
+    shell:
+        """
+        {params.merge_cmd} 2> {log}
+        samtools faidx {output.fastq} 2>> {log}
+        """
+
+    
+# Trim adapters
+# We don't need FastQC and frequently run into issues of trimgalore freezing
+# See https://github.com/FelixKrueger/TrimGalore/issues/205
+rule trim_adapter:
+    input:
+        fq=rules.convert_to_fq.output.fastq,
+    output:
+        reads=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_{condition}_trimmed.fq.gz"),
+        reads_idx=join(OUTPUT_DIR, "{sm}", "trimmed_reads", "reads_{condition}_trimmed.fq.gz.fai"),
+    conda:
+        "envs/env.yaml"
+    log:
+        join(LOG_DIR, "{sm}_{condition}_trim_adapters.log")
+    threads:
+        12
+    params:
+        error_rate=0.1,
+        quality=20,
+        stringency=5,
+        motifs=lambda wc: get_cutadapt_arg(wc, PRIMERS),
+        min_read_len=lambda wc: SAMPLE_INFO[wc.sm].get("min_length", 100),
+        max_read_len=lambda wc: SAMPLE_INFO[wc.sm].get("max_length", 100_000),
+    shell:
+        """
+        {{ cutadapt \
+        -j {threads} \
+        -e {params.error_rate} \
+        -q {params.quality} \
+        -O {params.stringency} \
+        -m {params.min_read_len} \
+        -M {params.max_read_len} \
+        {params.motifs} \
+        {input.fq} | bgzip ;}} > {output.reads} 2> {log}
+        samtools faidx {output.reads} 2>> {log}
+        """
+
+
+rule plot_reads:
+    input:
+        script="workflow/scripts/ont_stats",
+        idx=rules.trim_adapter.output.reads_idx,
+    output:
+        join(OUTPUT_DIR, "{sm}", "plot", "{sm}_{condition}_read_length.pdf")
+    params:
+        outdir=lambda wc, output: os.path.dirname(str(output[0]))
+    conda:
+        "envs/env.yaml"
+    log:
+        join(LOG_DIR, "plot_reads_{sm}_{condition}.log")
+    shell:
+        """
+        python {input.script} \
+        --fai {wildcards.sm}_{wildcards.condition}={input.idx} \
+        -p {params.outdir} \
+        --plot_ext pdf &> {log}
+        """
+
+
+rule index_asm:
+    input:
+        asm=lambda wc: SAMPLE_INFO[wc.sm]["ref"]
+    output:
+        touch(join(OUTPUT_DIR, "{sm}", "asm_index.done"))
+    conda:
+        "envs/env.yaml"
+    log:
+        join(LOG_DIR, "index_{sm}_ref.log")
+    shell:
+        """
+        bwa index {input.asm} &> {log}
+        """
+
+rule align_reads_bwa:
+    input:
+        reads=rules.trim_adapter.output.reads,
+        asm=lambda wc: SAMPLE_INFO[wc.sm]["ref"],
+        index=rules.index_asm.output,
+    output:
+        bam=join(OUTPUT_DIR, "{sm}", "bam", "{condition}_reads_to_ref.bam"),
+        bai=join(OUTPUT_DIR, "{sm}", "bam", "{condition}_reads_to_ref.bam.bai"),
+    conda:
+        "envs/env.yaml"
+    params:
+        k=50,
+        c=1000000,
+    threads:
+        12
+    log:
+        join(LOG_DIR, "{sm}_{condition}_align_reads_bwa.log")
+    shell:
+        """
+        {{ bwa mem -k {params.k} -c {params.c} -t {threads} {input.asm} {input.reads} | \
+        samtools sort -@ {threads} -o {output.bam} ;}} 2> {log}
+        samtools index {output.bam} 2>> {log}
+        """
+
+rule convert_bam_to_bw:
+    input:
+        bam_1=lambda wc: expand(
+            rules.align_reads_bwa.output.bam,
+            sm=wc.sm,
+            condition="treatment",
+        ),
+        bam_2=lambda wc: expand(
+            rules.align_reads_bwa.output.bam,
+            sm=wc.sm,
+            condition="control",
+        )
+    output:
+        bw=join(OUTPUT_DIR, "{sm}", "bam", "reads_to_ref.bw"),
+    params:
+        # Noisy reads so MAPQ 1 filters everything.
+        mapq=lambda wc: SAMPLE_INFO[wc.sm].get("min_mapq", 0),
+        binSize=lambda wc: SAMPLE_INFO[wc.sm].get("binsize", 5000),
+    conda:
+        "envs/env.yaml"
+    threads:
+        20
+    log:
+        join(LOG_DIR, "{sm}_convert_bam_to_bw.log")
+    shell:
+        """
+        bamCompare \
+        -b1 {input.bam_1} \
+        -b2 {input.bam_2} \
+        --operation ratio \
+        --binSize {params.binSize} \
+        --minMappingQuality {params.mapq} \
+        -p {threads} \
+        -o {output} 2> {log} 
+        """
+
+rule all:
+    input:
+        expand(rules.convert_bam_to_bw.output, sm=SAMPLES),
+        expand(rules.plot_reads.output, sm=SAMPLES, condition=CONDITIONS)
+    default_target:
+        True

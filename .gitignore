@@ -4,7 +4,9 @@ benchmark*/
 .snakemake/
 SG*/
 KO*/
-data*
 testing/
 old/
 nohup.out
+# pixi environments
+.pixi/*
+!.pixi/config.toml
