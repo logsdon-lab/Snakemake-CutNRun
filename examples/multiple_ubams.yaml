@@ -5,10 +5,13 @@ samples:
     ref: test/NA20355_chr8_haplotype1-0000017.fa.gz
     data:
       treatment:
+        # NOTE: These linked adapter pairs wil be trimmed in the combined uBAM
         primers: 
         - [i503, i705]
         - [i501, i703]
-        path: test/NA20355_chr8_haplotype1-0000017_CENPA.bam
+        path:
+        - CENPA_1.bam
+        - CENPA_2.bam
       control:
         primers: [i502, i704]
-        path: test/NA20355_chr8_haplotype1-0000017_IgG.bam
+        path: IgG.bam

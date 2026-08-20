@@ -1,0 +1,21 @@
+primer_list: data/14-1001-cut-and-run-library-prep-kit-primers.csv
+
+samples:
+  NA20355:
+    ref: test/asm.fa.gz
+    data:
+      treatment:
+        primers: [i503, i705]
+        path: CENPA.bam
+      control:
+        primers: [i502, i704]
+        path: test/IgG.bam
+  CHM13:
+    ref: test/asm.fa.gz
+    data:
+      treatment:
+        primers: [i503, i705]
+        path: CENPA.bam
+      control:
+        primers: [i502, i704]
+        path: test/IgG.bam

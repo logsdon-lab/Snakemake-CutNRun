@@ -1,0 +1,22 @@
+log_dir: "logs"
+benchmark_dir: "benchmarks"
+output_dir: "results"
+primer_list: data/14-1001-cut-and-run-library-prep-kit-primers.csv
+samples:
+  NA20355:
+    ref: test/asm.fa.gz
+    data:
+      treatment:
+        primers: [i503, i705]
+        path: CENPA.bam
+      control:
+        primers: [i502, i704]
+        path: test/IgG.bam
+    # Min read length
+    min_length: 100
+    # Max read length
+    max_length: 10000
+    # Minimum MAPQ
+    min_mapq: 0
+    # Bin size
+    binsize: 5000

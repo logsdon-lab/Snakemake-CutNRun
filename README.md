@@ -20,14 +20,18 @@ cd Snakemake-CutNRun
 
 Create conda/pixi environment with Snakemake.
 ```bash
-conda create --name smk snakemake==9.5.0
+conda create --name smk bioconda::snakemake==9.5.0
 # Or with pixi
 pixi install
 ```
 
 ## Configuation
-Modify to fit your use-case.
+Modify to fit your use-case. See `examples/*.yaml`.
+* Multiple samples are supported. 
+* Primer list for CUT&RUN kit is listed in `data/14-1001-cut-and-run-library-prep-kit-primers.csv` but can be modified if necessary. Use a matching index.
+* Multiple BAMs will be merged and then trimmed. If multiple primer pairs are set, all will be trimmed.
 
+Here's one minimal example:
 ```yaml
 # Mapping of idx to primer sequence
 primer_list: data/14-1001-cut-and-run-library-prep-kit-primers.csv
@@ -41,25 +45,17 @@ samples:
         # Primer list (list[list[str]] or list[str])
         # NOTE: If multiple paths, primer pairs are compared against merged reads.
         primer:
-        - ["idx_15*", "idx_i7*"]
+        - ["idx_i5*", "idx_i7*"]
         # Path to unaligned BAM data
         path: data/CENP-A/reads.bam
       control:
         primer:
-        - ["idx_15*", "idx_i7*"]
-        - ["idx_15*", "idx_i7*"]
+        - ["idx_i5*", "idx_i7*"]
+        - ["idx_i5*", "idx_i7*"]
         path: [
           data/IgG/reads1.bam,
           data/IgG/reads2.bam,
         ]
-    # Min read length
-    # Max read length
-    min_length: 100
-    max_length: 10000
-    # Minimum MAPQ
-    min_mapq: 0
-    # Bin size
-    binsize: 5000
 ```
 
 ## Run
@@ -73,10 +69,9 @@ With `pixi`:
 pixi run snakemake --configfile test/config.yaml -c 8 -p --sdm conda
 ```
 
-
 ## Output
-Normalized `bigWig` file under `results/(!sample_baseline)/reads_to_ref.bam`.
-* ex. `results/CENP-A/reads_to_ref.bam`
+Normalized `bigWig` file under `results/bam/reads_to_ref.bw`.
+* ex. `results/{sample}/bam/reads_to_ref.bw`
 * This can be loaded in `IGV` with the aligned reference.
 
 ## Test
